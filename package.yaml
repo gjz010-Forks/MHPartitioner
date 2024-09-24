@@ -1,0 +1,28 @@
+name: MHPartitioner
+version: 0.1.0
+
+dependencies:
+    - base == 4.*
+    - containers
+    - process
+    - directory
+    - quipper
+    - quipper-language
+    - easyrender
+    - quipper-utils
+    - quipper-libraries
+    - quipper-algorithms
+    - random
+library:
+    source-dirs: src
+executables:
+    Examples:
+        main: Examples
+        source-dirs: app/examples
+        dependencies:
+            MHPartitioner
+    Main:
+        main: Main
+        source-dirs: app/main
+        dependencies:
+            MHPartitioner
