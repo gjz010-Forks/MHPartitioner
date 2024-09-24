@@ -1,2 +1,0 @@
-constraints: zlib +pkg-config
-ignore-project: False

@@ -19,11 +19,32 @@
       ];
       systems = [ "x86_64-linux" "aarch64-linux" "aarch64-darwin" "x86_64-darwin" ];
       perSystem = { config, self', inputs', pkgs, system, ... }: {
+        haskellProjects.ghc865 = {
+          defaults.packages = {};  # Disable scanning for local package
+          devShell.enable = false; # Disable devShells
+          basePackages = pkgs.haskell.packages.ghc865Binary.override {
+            packageSetConfig = self: super: {
+              mkDerivation = drv: super.mkDerivation (drv // {
+                doCheck = false;
+                doHaddock = false;
+                enableExecutableProfiling = false;
+                enableLibraryProfiling = false;
+                enableSharedExecutables = true;
+                enableSharedLibraries = true;
+              });
+            };
+          };
+          packages = {
+            easyrender.source = "0.1.1.4";
+            fixedprec.source = "0.2.2.2";
+            HaskellForMaths.source = "0.4.9";
+            random.source = "1.1";
+          };
+          
+        };
         haskellProjects.default = {
-          projectRoot = builtins.toString (lib.fileset.toSource {
-            root = ./.;
-          })
-        }
+          basePackages = config.haskellProjects.ghc865.outputs.finalPackages;
+        };
         #packages.default = pkgs.
       };
       flake = {
