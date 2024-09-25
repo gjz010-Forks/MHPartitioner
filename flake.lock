@@ -18,6 +18,39 @@
         "type": "github"
       }
     },
+    "flake-parts_2": {
+      "inputs": {
+        "nixpkgs-lib": "nixpkgs-lib_2"
+      },
+      "locked": {
+        "lastModified": 1714641030,
+        "narHash": "sha256-yzcRNDoyVP7+SCNX0wmuDju1NUCt8Dz9+lyUXEI0dbI=",
+        "owner": "hercules-ci",
+        "repo": "flake-parts",
+        "rev": "e5d10a24b66c3ea8f150e47dfdb0416ab7c3390e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "hercules-ci",
+        "repo": "flake-parts",
+        "type": "github"
+      }
+    },
+    "flake-utils": {
+      "locked": {
+        "lastModified": 1659877975,
+        "narHash": "sha256-zllb8aq3YO3h8B/U0/J1WBgAL8EX5yWf5pMj3G0NAmc=",
+        "owner": "numtide",
+        "repo": "flake-utils",
+        "rev": "c0e246b9b83f637f4681389ecabcb2681b4f3af0",
+        "type": "github"
+      },
+      "original": {
+        "owner": "numtide",
+        "repo": "flake-utils",
+        "type": "github"
+      }
+    },
     "haskell-flake": {
       "locked": {
         "lastModified": 1727016673,
@@ -30,6 +63,26 @@
       "original": {
         "owner": "srid",
         "repo": "haskell-flake",
+        "type": "github"
+      }
+    },
+    "nixGL": {
+      "inputs": {
+        "flake-utils": "flake-utils",
+        "nixpkgs": "nixpkgs_2"
+      },
+      "locked": {
+        "lastModified": 1713791630,
+        "narHash": "sha256-hiSJcS4km/G/+Rv23jD8uTIEXR2kxf8hyQ8NsoHjQ3E=",
+        "owner": "muggenhor",
+        "repo": "nixGL",
+        "rev": "12f8b902bb28615650b1fa9f334950ace9f9ebe8",
+        "type": "github"
+      },
+      "original": {
+        "owner": "muggenhor",
+        "ref": "fix/fwd-nvidia-hash-to-auto",
+        "repo": "nixGL",
         "type": "github"
       }
     },
@@ -61,11 +114,61 @@
         "url": "https://github.com/NixOS/nixpkgs/archive/356624c12086a18f2ea2825fed34523d60ccc4e3.tar.gz"
       }
     },
+    "nixpkgs-lib_2": {
+      "locked": {
+        "lastModified": 1714640452,
+        "narHash": "sha256-QBx10+k6JWz6u7VsohfSw8g8hjdBZEf8CFzXH1/1Z94=",
+        "type": "tarball",
+        "url": "https://github.com/NixOS/nixpkgs/archive/50eb7ecf4cd0a5756d7275c8ba36790e5bd53e33.tar.gz"
+      },
+      "original": {
+        "type": "tarball",
+        "url": "https://github.com/NixOS/nixpkgs/archive/50eb7ecf4cd0a5756d7275c8ba36790e5bd53e33.tar.gz"
+      }
+    },
+    "nixpkgs_2": {
+      "locked": {
+        "lastModified": 1660551188,
+        "narHash": "sha256-a1LARMMYQ8DPx1BgoI/UN4bXe12hhZkCNqdxNi6uS0g=",
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "rev": "441dc5d512153039f19ef198e662e4f3dbb9fd65",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "qiskit-aer": {
+      "inputs": {
+        "flake-parts": "flake-parts_2",
+        "nixGL": "nixGL",
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1724747067,
+        "narHash": "sha256-imsNrG9Wgbd0ki24NMOfyN76bsHhsLrW1ZHeHO+WbLg=",
+        "ref": "refs/heads/master",
+        "rev": "bc4656c2581bd8b57fd4ec7d168dcbec032ebc30",
+        "revCount": 25,
+        "type": "git",
+        "url": "http://www.arclighttest.cn:8090/gjz010/qiskit-aer-with-cuquantum.git"
+      },
+      "original": {
+        "type": "git",
+        "url": "http://www.arclighttest.cn:8090/gjz010/qiskit-aer-with-cuquantum.git"
+      }
+    },
     "root": {
       "inputs": {
         "flake-parts": "flake-parts",
         "haskell-flake": "haskell-flake",
-        "nixpkgs": "nixpkgs"
+        "nixpkgs": "nixpkgs",
+        "qiskit-aer": "qiskit-aer"
       }
     }
   },

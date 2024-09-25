@@ -30,6 +30,7 @@ processArgs (a:as) = case take 3 a of
                       "\t -cc Assume QPUs can execute CCZ gates.\n"++
                       "\t -o= Choose between different output formats: preview, eps, pdf, ascii. Default: gatecount.\n"++
                       "\t -vb Reduce output verbosity: omit partitioning progress.\n"++
+                      "\t -d= Specifying root folder for KaHyPar.\n"++
                       "\n\n"
     "-k=" -> (read $ drop 3 a, s, w, m, kT, alg, dir, o, sT, vb)
     "-s=" -> (k, read $ drop 3 a, w, m, kT, alg, dir, o, sT, vb)

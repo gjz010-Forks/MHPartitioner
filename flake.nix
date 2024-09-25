@@ -6,9 +6,13 @@
     flake-parts.url = "github:hercules-ci/flake-parts";
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     haskell-flake.url = "github:srid/haskell-flake";
+    qiskit-aer = {
+      url = "git+http://www.arclighttest.cn:8090/gjz010/qiskit-aer-with-cuquantum.git";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = inputs@{ flake-parts, ... }:
+  outputs = inputs@{ flake-parts, qiskit-aer, ... }:
     flake-parts.lib.mkFlake { inherit inputs; } {
       imports = [
         # To import a flake module
@@ -42,12 +46,43 @@
           };
           
         };
+        # MHPartitioner Haskell project
         haskellProjects.default = {
           basePackages = config.haskellProjects.ghc865.outputs.finalPackages;
+          devShell.enable = false;
+          # Filter files
+          projectRoot = with pkgs; builtins.toString (lib.fileset.toSource {
+            root = ./.;
+            fileset = lib.fileset.unions [
+              ./app ./src ./test ./MHPartitioner.cabal ./LICENSE
+            ];
+          });
         };
-        #packages.default = pkgs.
+        packages.default = pkgs.stdenvNoCC.mkDerivation{
+          name = "mhpartitioner";
+          buildInputs = [ config.packages.MHPartitioner ];
+          nativeBuildInputs = with pkgs; [makeWrapper];
+          unpackPhase = "true";
+          buildPhase = "true";
+          orig = config.packages.MHPartitioner;
+          installPhase = ''
+            mkdir -p $out/libexec/mhpartitioner
+            ln -s ${qiskit-aer.packages."${system}".kahypar}/bin/KaHyPar $out/libexec/mhpartitioner/
+            ln -s ${qiskit-aer.packages."${system}".kahypar}/share/kahypar $out/libexec/mhpartitioner/
+            cp ${./libexec/PaToH} $out/libexec/mhpartitioner/
+            mkdir -p $out/bin
+            makeWrapper $orig/bin/Examples $out/bin/mhpartitioner-examples
+            makeWrapper $orig/bin/Main $out/bin/mhpartitioner --add-flags -d=$out/libexec/mhpartitioner/
+          '';
+
+        };
+        devShells.default = pkgs.mkShell {
+          buildInputs = with pkgs; [haskell.compiler.ghc865Binary libz.dev qiskit-aer.packages."${system}".kahypar];
+          nativeBuildInputs = with pkgs; [cabal-install hpack pkg-config];
+        };
       };
       flake = {
+
         # The usual flake attributes can be defined here, including system-
         # agnostic ones like nixosModule and system-enumerating ones, although
         # those are more easily expressed in perSystem.
