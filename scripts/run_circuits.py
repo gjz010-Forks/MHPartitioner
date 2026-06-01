@@ -6,6 +6,7 @@ import argparse
 import math
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 import time
@@ -14,9 +15,13 @@ import time
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CIRCUITS_DIR = REPO_ROOT / "circuits"
 DEFAULT_LOG_DIR = REPO_ROOT / ".circuit-smoke"
+DEFAULT_COMPILED_DIR = REPO_ROOT / ".compiled"
 EXTRA_CASE_ARGS = {
     "withToffolis": ["-cc"],
 }
+INSUFFICIENT_QUBITS_RE = re.compile(
+    r"There are not enough qubits to run the circuit\. Qubits required: (\d+)\."
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -64,6 +69,10 @@ def parse_args() -> argparse.Namespace:
         "--log-dir",
         default=str(DEFAULT_LOG_DIR),
         help="Directory where stdout/stderr logs should be written.",
+    )
+    parser.add_argument(
+        "--compiled-dir",
+        help="Directory where compiled ASCII circuits should be written via Main -f=. One file per case.",
     )
     parser.add_argument(
         "--fail-fast",
@@ -143,10 +152,17 @@ def count_qubits(circuit_path: Path) -> int:
     return qubits
 
 
-def build_case_args(circuit_path: Path, k: int, output_format: str) -> tuple[int, list[str]]:
+def build_case_args(
+    circuit_path: Path,
+    k: int,
+    output_format: str,
+    size: int,
+    compiled_path: Path | None,
+) -> tuple[int, list[str]]:
     qubits = count_qubits(circuit_path)
-    size = math.ceil(qubits / k)
     args = [f"-k={k}", f"-s={size}", f"-o={output_format}", "-vb"]
+    if compiled_path is not None:
+        args.append(f"-f={compiled_path}")
     args.extend(EXTRA_CASE_ARGS.get(circuit_path.name, []))
     return qubits, args
 
@@ -160,40 +176,77 @@ def write_log(log_path: Path, stdout: str, stderr: str) -> None:
     log_path.write_text(payload, encoding="utf-8")
 
 
+def required_qubits(stdout: str, stderr: str) -> int | None:
+    combined = stdout + "\n" + stderr
+    match = INSUFFICIENT_QUBITS_RE.search(combined)
+    if match is None:
+        return None
+    return int(match.group(1))
+
+
 def run_case(
     binary: Path,
     kahypar_root: str,
     circuit_path: Path,
-    case_args: list[str],
+    case_args_builder,
     timeout: int,
     log_dir: Path,
     output_format: str,
+    compiled_path: Path | None,
 ) -> tuple[bool, float, Path, str]:
-    command = [str(binary), f"-d={kahypar_root}", *case_args]
     log_path = log_dir / f"{circuit_path.name}.{output_format}.log"
     start = time.monotonic()
 
-    try:
-        with circuit_path.open("r", encoding="utf-8") as handle:
-            result = subprocess.run(
-                command,
-                cwd=REPO_ROOT,
-                stdin=handle,
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-            )
+    size = case_args_builder["initial_size"]
+    retried = False
+    while True:
+        _, case_args = build_case_args(
+            circuit_path,
+            case_args_builder["k"],
+            output_format,
+            size,
+            compiled_path,
+        )
+        command = [str(binary), f"-d={kahypar_root}", *case_args]
+        if compiled_path is not None and compiled_path.exists():
+            compiled_path.unlink()
+
+        try:
+            with circuit_path.open("r", encoding="utf-8") as handle:
+                result = subprocess.run(
+                    command,
+                    cwd=REPO_ROOT,
+                    stdin=handle,
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout,
+                )
+        except subprocess.TimeoutExpired as exc:
+            elapsed = time.monotonic() - start
+            stdout = exc.stdout or ""
+            stderr = exc.stderr or ""
+            write_log(log_path, stdout, stderr)
+            return False, elapsed, log_path, f"timeout>{timeout}s"
+
+        needed = required_qubits(result.stdout, result.stderr)
+        if needed is not None and needed > case_args_builder["k"] * size and not retried:
+            size = math.ceil(needed / case_args_builder["k"])
+            retried = True
+            continue
+
         elapsed = time.monotonic() - start
         write_log(log_path, result.stdout, result.stderr)
-        ok = result.returncode == 0
-        detail = f"exit={result.returncode}"
-        return ok, elapsed, log_path, detail
-    except subprocess.TimeoutExpired as exc:
-        elapsed = time.monotonic() - start
-        stdout = exc.stdout or ""
-        stderr = exc.stderr or ""
-        write_log(log_path, stdout, stderr)
-        return False, elapsed, log_path, f"timeout>{timeout}s"
+        if result.returncode != 0:
+            return False, elapsed, log_path, f"exit={result.returncode}"
+        if needed is not None:
+            return False, elapsed, log_path, f"insufficient-qubits>{needed}"
+        if compiled_path is not None and not compiled_path.is_file():
+            return False, elapsed, log_path, "missing-compiled-output"
+
+        detail = f"exit=0, s={size}"
+        if retried:
+            detail += " (retried)"
+        return True, elapsed, log_path, detail
 
 
 def main() -> int:
@@ -206,16 +259,33 @@ def main() -> int:
     circuits_dir = Path(args.circuits_dir).expanduser().resolve()
     log_dir = Path(args.log_dir).expanduser().resolve()
     log_dir.mkdir(parents=True, exist_ok=True)
+    compiled_dir = (
+        Path(args.compiled_dir).expanduser().resolve() if args.compiled_dir else None
+    )
+    if compiled_dir is not None:
+        compiled_dir.mkdir(parents=True, exist_ok=True)
     cases = discover_cases(circuits_dir, args.cases)
 
     print(f"Binary: {binary}")
     print(f"KAHYPAR_ROOT: {kahypar_root}")
     print(f"Log dir: {log_dir}")
+    if compiled_dir is not None:
+        print(f"Compiled dir: {compiled_dir}")
     print(f"Cases: {', '.join(path.name for path in cases)}")
 
     failures = 0
     for circuit_path in cases:
-        qubits, case_args = build_case_args(circuit_path, args.k, args.output_format)
+        initial_size = math.ceil(count_qubits(circuit_path) / args.k)
+        compiled_path = (
+            compiled_dir / f"{circuit_path.name}.out" if compiled_dir is not None else None
+        )
+        qubits, case_args = build_case_args(
+            circuit_path,
+            args.k,
+            args.output_format,
+            initial_size,
+            compiled_path,
+        )
         print(
             f"RUN {circuit_path.name}: qubits={qubits}, args={' '.join(case_args)}",
             flush=True,
@@ -224,13 +294,17 @@ def main() -> int:
             binary,
             kahypar_root,
             circuit_path,
-            case_args,
+            {"initial_size": initial_size, "k": args.k},
             args.timeout,
             log_dir,
             args.output_format,
+            compiled_path,
         )
         status = "PASS" if ok else "FAIL"
-        print(f"{status} {circuit_path.name}: {detail}, {elapsed:.1f}s, log={log_path}")
+        compiled_text = f", compiled={compiled_path}" if compiled_path is not None else ""
+        print(
+            f"{status} {circuit_path.name}: {detail}, {elapsed:.1f}s, log={log_path}{compiled_text}"
+        )
         if not ok:
             failures += 1
             if args.fail_fast:

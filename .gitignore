@@ -3,3 +3,4 @@ result
 .direnv
 temp
 .circuit-smoke
+.compiled
