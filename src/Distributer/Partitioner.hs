@@ -149,7 +149,7 @@ getPartitionIO (k, algorithm, partDir, saveTrace, verbose) fileData id nSegments
   in do 
     writeFile hypFile $ fileData 
     waitForFile hypFile
-    createProcess $ shell $ script algorithm++"; mv "++hypFile++".part* "++partFile
+    createProcess $ proc "/usr/bin/env" ["bash", "-c", script algorithm++"; mv "++hypFile++".part* "++partFile]
     waitForFile partFile
     if verbose then putStrLn $ "Segment " ++ id ++ " of " ++ (show nSegments) else return ()
     output <- readFile partFile

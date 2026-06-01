@@ -77,8 +77,26 @@
                 }
               );
           };
+          packages.kahypar-root = pkgs.lib.makeOverridable (
+            { kahypar }:
+            pkgs.stdenvNoCC.mkDerivation {
+              name = "kahypar-root";
+              nativeBuildInputs = with pkgs; [ makeWrapper ];
+              unpackPhase = "true";
+              buildPhase = "true";
+              installPhase = ''
+                mkdir -p $out/libexec/mhpartitioner
+                ln -s ${kahypar}/bin/KaHyPar $out/libexec/mhpartitioner/
+                ln -s ${kahypar}/share/kahypar $out/libexec/mhpartitioner/
+                cp ${./libexec/PaToH} $out/libexec/mhpartitioner/PaToH
+              '';
+            }
+          ) { kahypar = self'.packages.kahypar; };
           packages.default = pkgs.lib.makeOverridable (
             { kahypar }:
+            let
+              kahypar-root = self'.packages.kahypar-root.override { inherit kahypar; };
+            in
             pkgs.stdenvNoCC.mkDerivation {
               name = "mhpartitioner";
               buildInputs = [ config.packages.MHPartitioner ];
@@ -87,18 +105,16 @@
               buildPhase = "true";
               orig = config.packages.MHPartitioner;
               installPhase = ''
-                mkdir -p $out/libexec/mhpartitioner
-                ln -s ${kahypar}/bin/KaHyPar $out/libexec/mhpartitioner/
-                ln -s ${kahypar}/share/kahypar $out/libexec/mhpartitioner/
-                cp ${./libexec/PaToH} $out/libexec/mhpartitioner/
                 mkdir -p $out/bin
                 makeWrapper $orig/bin/Examples $out/bin/mhpartitioner-examples
-                makeWrapper $orig/bin/Main $out/bin/mhpartitioner --add-flags -d=$out/libexec/mhpartitioner/
+                makeWrapper $orig/bin/Main $out/bin/mhpartitioner --add-flags -d=${kahypar-root}/libexec/mhpartitioner/
               '';
 
             }
-          ) { kahypar = "/homeless-shelter"; };
+          ) { kahypar = self'.packages.kahypar; };
+          packages.kahypar = pkgs.callPackage ./nix/kahypar { };
           devShells.default = pkgs.mkShell {
+            KAHYPAR_ROOT = "${self'.packages.kahypar-root}/libexec/mhpartitioner/";
             buildInputs = with pkgs; [
               haskell.compiler.ghc865Binary
               libz.dev
@@ -109,6 +125,10 @@
               pkg-config
               nil
               nixfmt-rfc-style
+              self'.packages.kahypar
+              python3
+              uv
+              just
             ];
           };
         };

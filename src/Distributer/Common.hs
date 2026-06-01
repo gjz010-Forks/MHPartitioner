@@ -12,6 +12,7 @@ type Size = Int
 type InitSegSize = Int
 type MaxHedgeDist = Int
 type KeepCCZ = Bool
+type RunPreprocessing = Bool
 data PartAlg = Kahypar | Patoh
 type PartDir = String
 type SaveTrace = Bool
@@ -82,6 +83,44 @@ getControls (QGate _ _ _ [] ctrls _) = ctrls
 getWires :: Gate -> [Wire]
 getWires (QGate "CZ" _ [target] [] signedCtrls _) = target : ctrls
   where ctrls = map from_signed signedCtrls
+
+skipPreprocessingContract :: String
+skipPreprocessingContract = "Input must already be unboxed, comment-free, swap-free, use only CZ gates with positive controls, and use only X/Y/Z/S/T/H as uncontrolled single-qubit gates."
+
+validatePreprocessedInput :: [Gate] -> Either String ()
+validatePreprocessedInput [] = Right ()
+validatePreprocessedInput (g:gs) = case invalidReason g of
+  Nothing -> validatePreprocessedInput gs
+  Just reason -> Left $ "Input validation failed while preprocessing is skipped.\n" ++
+    reason ++ "\nGate: " ++ show g ++ "\nContract: " ++ skipPreprocessingContract
+  where
+    invalidReason gate = case gate of
+      (QGate "CZ" _ [_] [] ctrls _) ->
+        if null ctrls
+          then Just "CZ gates must have at least one control."
+          else if any (\(Signed _ positive) -> not positive) ctrls
+            then Just "CZ gates must not use negative controls."
+            else Nothing
+      (QGate gateName _ [_] [] [] _) | gateName `elem` allowedSingleQGates -> Nothing
+      (QGate gateName _ [_] [] _ _) | gateName `elem` allowedSingleQGates ->
+        Just $ gateName ++ " gates must not have controls."
+      (QPrep _ _)     -> Nothing
+      (QUnprep _ _)   -> Nothing
+      (QInit _ _ _)   -> Nothing
+      (CInit _ _ _)   -> Nothing
+      (QTerm _ _ _)   -> Nothing
+      (CTerm _ _ _)   -> Nothing
+      (QMeas _)       -> Nothing
+      (QDiscard _)    -> Nothing
+      (CDiscard _)    -> Nothing
+      (DTerm _ _)     -> Nothing
+      (Comment _ _ _) -> Just "Comments are not supported when preprocessing is skipped."
+      _ | isClassical gate -> Nothing
+      (QGate gateName _ _ _ _ _) ->
+        Just $ "Unsupported quantum gate " ++ gateName ++ ". Supported quantum gates are CZ with positive controls and single-qubit X/Y/Z/S/T/H without controls."
+      _ -> Just "Unsupported circuit construct."
+
+    allowedSingleQGates = ["X", "Y", "Z", "S", "T", "H"]
 
 -- Notice that this number is always going to be less or equal than (length $ nonLocalCs part hyp) because the latter counts "external" (those implemented in a QPU that is neither its control nor target) CZs twice
 countNonLocal :: [Segment] -> Int

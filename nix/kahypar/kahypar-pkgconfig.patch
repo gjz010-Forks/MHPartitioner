@@ -1,0 +1,34 @@
+diff --git a/kahypar/application/CMakeLists.txt b/kahypar/application/CMakeLists.txt
+index f62320c..ca0c426 100644
+--- a/kahypar/application/CMakeLists.txt
++++ b/kahypar/application/CMakeLists.txt
+@@ -4,6 +4,8 @@ target_link_libraries(KaHyPar ${Boost_LIBRARIES})
+ set_property(TARGET KaHyPar PROPERTY CXX_STANDARD 17)
+ set_property(TARGET KaHyPar PROPERTY CXX_STANDARD_REQUIRED ON)
+ 
++install(TARGETS KaHyPar DESTINATION ${CMAKE_INSTALL_BINDIR})
++
+ if(ENABLE_PROFILE MATCHES ON) 
+   target_link_libraries(KaHyPar ${PROFILE_FLAGS})
+ endif()
+diff --git a/lib/libkahypar.pc.in b/lib/libkahypar.pc.in
+index 821cf2a..0ffaaec 100644
+--- a/lib/libkahypar.pc.in
++++ b/lib/libkahypar.pc.in
+@@ -1,7 +1,6 @@
+ prefix=@CMAKE_INSTALL_PREFIX@
+-exec_prefix=@CMAKE_INSTALL_PREFIX@
+-libdir=${exec_prefix}/@CMAKE_INSTALL_LIBDIR@
+-includedir=${prefix}/@CMAKE_INSTALL_INCLUDEDIR@
++libdir=@CMAKE_INSTALL_FULL_LIBDIR@
++includedir=@CMAKE_INSTALL_FULL_INCLUDEDIR@
+ 
+ Name: @PROJECT_NAME@
+ Description: @PROJECT_DESCRIPTION@
+@@ -11,4 +10,4 @@ URL: @PROJECT_URL@
+ 
+ Requires:
+ Libs: -L${libdir} -lkahypar
+-Cflags: -I${includedir}
+\ No newline at end of file
++Cflags: -I${includedir}
